@@ -1,0 +1,1 @@
+export const ITEMS_PER_PAGE = Number(import.meta.env.VITE_ITEMS_PER_PAGE) || 10;

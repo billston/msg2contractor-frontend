@@ -1,43 +1,37 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Plus, Pencil, Trash2, Users } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { api } from '../config/api';
-import { GrupoReceptor, Receptor } from '../types';
-import Modal from '../components/Modal';
-import GrupoForm from '../components/GrupoForm';
-import ReceptorSelector from '../components/ReceptorSelector';
+import { ITEMS_PER_PAGE } from '../config/pagination';
+import { GrupoReceptor } from '../types';
 import { useGrupos } from '../hooks/useGrupos';
+import CreateGrupoModal from '../components/grupos/CreateGrupoModal';
+import EditGrupoModal from '../components/grupos/EditGrupoModal';
+import MiembrosModal from '../components/grupos/MiembrosModal';
+import GruposTable from '../components/grupos/GruposTable';
+import Pagination from '../components/Pagination';
+import SearchInput from '../components/SearchInput';
 import toast from 'react-hot-toast';
 
 function GruposPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingGrupo, setEditingGrupo] = useState<GrupoReceptor | null>(null);
   const [selectedGrupo, setSelectedGrupo] = useState<GrupoReceptor | null>(null);
-  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
-  const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
 
   const { data: grupos, isLoading } = useQuery({
-    queryKey: ['grupos', searchTerm],
+    queryKey: ['grupos', activeSearch],
     queryFn: async () => {
       const response = await api.get<GrupoReceptor[]>('/grupos', {
-        params: { search: searchTerm },
+        params: { search: activeSearch },
       });
       return response.data;
     },
   });
 
-  const { data: miembros, isLoading: isLoadingMiembros } = useQuery({
-    queryKey: ['grupos', selectedGrupo?.idGrupoReceptor, 'miembros'],
-    queryFn: async () => {
-      if (!selectedGrupo) return [];
-      const response = await api.get<Receptor[]>(`/grupos/${selectedGrupo.idGrupoReceptor}/miembros`);
-      return response.data;
-    },
-    enabled: !!selectedGrupo,
-  });
-
-  const { createGrupo, updateGrupo, deleteGrupo, addMiembro, removeMiembro } = useGrupos();
+  const { deleteGrupo } = useGrupos();
 
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Está seguro de eliminar este grupo?')) {
@@ -49,24 +43,18 @@ function GruposPage() {
     }
   };
 
-  const handleAddMember = async (receptor: Receptor) => {
-    if (selectedGrupo) {
-      await addMiembro.mutateAsync({
-        grupoId: selectedGrupo.idGrupoReceptor,
-        data: { idReceptor: receptor.idReceptor },
-      });
-      setIsAddMemberModalOpen(false);
-    }
+  const handleSearch = () => {
+    setActiveSearch(searchTerm.trim());
+    setCurrentPage(1);
   };
 
-  const handleRemoveMember = async (miembroId: number) => {
-    if (selectedGrupo && window.confirm('¿Está seguro de eliminar este miembro del grupo?')) {
-      await removeMiembro.mutateAsync({
-        grupoId: selectedGrupo.idGrupoReceptor,
-        miembroId,
-      });
-    }
-  };
+  // Pagination logic
+  const filteredGrupos = grupos || [];
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedGrupos = filteredGrupos.slice(
+    startIndex,
+    startIndex + ITEMS_PER_PAGE
+  );
 
   return (
     <div className="space-y-6">
@@ -82,206 +70,43 @@ function GruposPage() {
         </button>
       </div>
 
-      <div className="flex max-w-md">
-        <div className="relative flex-grow">
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <Search className="h-5 w-5 text-gray-400" />
-          </div>
-          <input
-            type="text"
-            className="block w-full rounded-md border-0 py-1.5 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-            placeholder="Buscar por nombre..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
+      <SearchInput
+        value={searchTerm}
+        onChange={setSearchTerm}
+        onSearch={handleSearch}
+        placeholder="Buscar por nombre..."
+      />
 
-      <div className="mt-8 flow-root">
-        <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-          <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
-              <table className="min-w-full divide-y divide-gray-300">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
-                      Nombre
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                  {isLoading ? (
-                    <tr>
-                      <td colSpan={2} className="text-center py-4">
-                        Cargando...
-                      </td>
-                    </tr>
-                  ) : grupos?.length === 0 ? (
-                    <tr>
-                      <td colSpan={2} className="text-center py-4">
-                        No se encontraron grupos
-                      </td>
-                    </tr>
-                  ) : (
-                    grupos?.map((grupo) => (
-                      <tr key={grupo.idGrupoReceptor}>
-                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
-                          {grupo.nombre}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm space-x-2">
-                          <button
-                            onClick={() => {
-                              setSelectedGrupo(grupo);
-                              setIsMembersModalOpen(true);
-                            }}
-                            className="text-indigo-600 hover:text-indigo-900"
-                            title="Ver miembros"
-                          >
-                            <Users className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setEditingGrupo(grupo)}
-                            className="text-indigo-600 hover:text-indigo-900"
-                            title="Editar grupo"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(grupo.idGrupoReceptor)}
-                            className="text-red-600 hover:text-red-900"
-                            title="Eliminar grupo"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
+      <GruposTable
+        grupos={paginatedGrupos}
+        isLoading={isLoading}
+        onEdit={setEditingGrupo}
+        onDelete={handleDelete}
+        onViewMembers={setSelectedGrupo}
+      />
 
-      <Modal
+      {!isLoading && filteredGrupos.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredGrupos.length}
+          onPageChange={setCurrentPage}
+        />
+      )}
+
+      <CreateGrupoModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        title="Nuevo Grupo"
-      >
-        <GrupoForm
-          onSubmit={async (data) => {
-            await createGrupo.mutateAsync(data);
-            setIsCreateModalOpen(false);
-          }}
-          isSubmitting={createGrupo.isPending}
-        />
-      </Modal>
+      />
 
-      <Modal
-        isOpen={!!editingGrupo}
+      <EditGrupoModal
+        grupo={editingGrupo}
         onClose={() => setEditingGrupo(null)}
-        title="Editar Grupo"
-      >
-        {editingGrupo && (
-          <GrupoForm
-            initialData={editingGrupo}
-            onSubmit={async (data) => {
-              await updateGrupo.mutateAsync({
-                id: editingGrupo.idGrupoReceptor,
-                data,
-              });
-              setEditingGrupo(null);
-            }}
-            isSubmitting={updateGrupo.isPending}
-          />
-        )}
-      </Modal>
+      />
 
-      <Modal
-        isOpen={isMembersModalOpen}
-        onClose={() => {
-          setIsMembersModalOpen(false);
-          setSelectedGrupo(null);
-        }}
-        title={`Miembros de ${selectedGrupo?.nombre}`}
-      >
-        <div className="space-y-4">
-          <button
-            type="button"
-            onClick={() => setIsAddMemberModalOpen(true)}
-            className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Agregar Miembro
-          </button>
-
-          <div className="mt-4">
-            {isLoadingMiembros ? (
-              <div className="text-center py-4">Cargando miembros...</div>
-            ) : !miembros?.length ? (
-              <div className="text-center py-4">No hay miembros en este grupo</div>
-            ) : (
-              <table className="min-w-full divide-y divide-gray-300">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
-                      Código
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Nombre
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Correo
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                  {miembros.map((miembro) => (
-                    <tr key={miembro.idReceptor}>
-                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
-                        {miembro.codigo}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {miembro.nombreCompleto}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {miembro.correoElectronico}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm">
-                        <button
-                          onClick={() => handleRemoveMember(miembro.idReceptor)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Eliminar miembro"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        isOpen={isAddMemberModalOpen}
-        onClose={() => setIsAddMemberModalOpen(false)}
-        title="Agregar Miembro"
-      >
-        <ReceptorSelector
-          onSelect={handleAddMember}
-          excludeIds={miembros?.map((m) => m.idReceptor) || []}
-        />
-      </Modal>
+      <MiembrosModal
+        grupo={selectedGrupo}
+        onClose={() => setSelectedGrupo(null)}
+      />
     </div>
   );
 }
