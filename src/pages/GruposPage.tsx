@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Plus, Pencil, Trash2, UserPlus } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, Users } from 'lucide-react';
 import { api } from '../config/api';
 import { GrupoReceptor, Receptor } from '../types';
 import Modal from '../components/Modal';
 import GrupoForm from '../components/GrupoForm';
-import MiembrosTable from '../components/MiembrosTable';
 import ReceptorSelector from '../components/ReceptorSelector';
 import { useGrupos } from '../hooks/useGrupos';
 import toast from 'react-hot-toast';
@@ -16,6 +15,7 @@ function GruposPage() {
   const [editingGrupo, setEditingGrupo] = useState<GrupoReceptor | null>(null);
   const [selectedGrupo, setSelectedGrupo] = useState<GrupoReceptor | null>(null);
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
+  const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
 
   const { data: grupos, isLoading } = useQuery({
     queryKey: ['grupos', searchTerm],
@@ -27,7 +27,17 @@ function GruposPage() {
     },
   });
 
-  const { createGrupo, updateGrupo, deleteGrupo, addMiembro } = useGrupos();
+  const { data: miembros, isLoading: isLoadingMiembros } = useQuery({
+    queryKey: ['grupos', selectedGrupo?.idGrupoReceptor, 'miembros'],
+    queryFn: async () => {
+      if (!selectedGrupo) return [];
+      const response = await api.get<Receptor[]>(`/grupos/${selectedGrupo.idGrupoReceptor}/miembros`);
+      return response.data;
+    },
+    enabled: !!selectedGrupo,
+  });
+
+  const { createGrupo, updateGrupo, deleteGrupo, addMiembro, removeMiembro } = useGrupos();
 
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Está seguro de eliminar este grupo?')) {
@@ -46,6 +56,15 @@ function GruposPage() {
         data: { idReceptor: receptor.idReceptor },
       });
       setIsAddMemberModalOpen(false);
+    }
+  };
+
+  const handleRemoveMember = async (miembroId: number) => {
+    if (selectedGrupo && window.confirm('¿Está seguro de eliminar este miembro del grupo?')) {
+      await removeMiembro.mutateAsync({
+        grupoId: selectedGrupo.idGrupoReceptor,
+        miembroId,
+      });
     }
   };
 
@@ -116,21 +135,24 @@ function GruposPage() {
                           <button
                             onClick={() => {
                               setSelectedGrupo(grupo);
-                              setIsAddMemberModalOpen(true);
+                              setIsMembersModalOpen(true);
                             }}
                             className="text-indigo-600 hover:text-indigo-900"
+                            title="Ver miembros"
                           >
-                            <UserPlus className="h-4 w-4" />
+                            <Users className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => setEditingGrupo(grupo)}
                             className="text-indigo-600 hover:text-indigo-900"
+                            title="Editar grupo"
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(grupo.idGrupoReceptor)}
                             className="text-red-600 hover:text-red-900"
+                            title="Eliminar grupo"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -144,15 +166,6 @@ function GruposPage() {
           </div>
         </div>
       </div>
-
-      {selectedGrupo && (
-        <div className="mt-8">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">
-            Miembros de {selectedGrupo.nombre}
-          </h2>
-          <MiembrosTable grupoId={selectedGrupo.idGrupoReceptor} />
-        </div>
-      )}
 
       <Modal
         isOpen={isCreateModalOpen}
@@ -189,13 +202,84 @@ function GruposPage() {
       </Modal>
 
       <Modal
+        isOpen={isMembersModalOpen}
+        onClose={() => {
+          setIsMembersModalOpen(false);
+          setSelectedGrupo(null);
+        }}
+        title={`Miembros de ${selectedGrupo?.nombre}`}
+      >
+        <div className="space-y-4">
+          <button
+            type="button"
+            onClick={() => setIsAddMemberModalOpen(true)}
+            className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Agregar Miembro
+          </button>
+
+          <div className="mt-4">
+            {isLoadingMiembros ? (
+              <div className="text-center py-4">Cargando miembros...</div>
+            ) : !miembros?.length ? (
+              <div className="text-center py-4">No hay miembros en este grupo</div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-300">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
+                      Código
+                    </th>
+                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      Nombre
+                    </th>
+                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      Correo
+                    </th>
+                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {miembros.map((miembro) => (
+                    <tr key={miembro.idReceptor}>
+                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
+                        {miembro.codigo}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        {miembro.nombreCompleto}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        {miembro.correoElectronico}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm">
+                        <button
+                          onClick={() => handleRemoveMember(miembro.idReceptor)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Eliminar miembro"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
         isOpen={isAddMemberModalOpen}
         onClose={() => setIsAddMemberModalOpen(false)}
         title="Agregar Miembro"
       >
         <ReceptorSelector
           onSelect={handleAddMember}
-          excludeIds={[]} // TODO: Add current member IDs
+          excludeIds={miembros?.map((m) => m.idReceptor) || []}
         />
       </Modal>
     </div>

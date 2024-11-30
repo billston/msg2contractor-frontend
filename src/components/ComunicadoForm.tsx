@@ -1,11 +1,13 @@
+import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
-import RichTextEditor from './RichTextEditor';
 import FileUpload from './FileUpload';
-import ReceptorSelector from './ReceptorSelector';
-import GrupoSelector from './GrupoSelector';
+import AutocompleteInput from './AutocompleteInput';
+import TailwindEditor from './TailwindEditor';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../config/api';
 import { Receptor, GrupoReceptor } from '../types';
 
 const comunicadoSchema = z.object({
@@ -44,7 +46,7 @@ function ComunicadoForm({
   } = useForm<ComunicadoFormData>({
     resolver: zodResolver(comunicadoSchema),
     defaultValues: {
-      tipoReceptor: 1,
+      tipoReceptor: 0,
       confirmacionRecepcion: false,
       solicitarRespuesta: false,
       ...initialData,
@@ -54,9 +56,27 @@ function ComunicadoForm({
   const [adjunto, setAdjunto] = useState<File>();
   const tipoReceptor = watch('tipoReceptor');
 
-  const handleReceptorSelect = (receptor: Receptor) => {
+  const { data: receptores } = useQuery({
+    queryKey: ['receptores'],
+    queryFn: async () => {
+      const response = await api.get<Receptor[]>('/receptores');
+      return response.data;
+    },
+    enabled: tipoReceptor === 1,
+  });
+
+  const { data: grupos } = useQuery({
+    queryKey: ['grupos'],
+    queryFn: async () => {
+      const response = await api.get<GrupoReceptor[]>('/grupos');
+      return response.data;
+    },
+    enabled: tipoReceptor === 2,
+  });
+
+  const handleReceptorSelect = (receptor: { id: number }) => {
     const currentDestinatarios = watch('destinatario')?.split(';').filter(Boolean) || [];
-    const newDestinatario = receptor.idReceptor.toString();
+    const newDestinatario = receptor.id.toString();
     if (!currentDestinatarios.includes(newDestinatario)) {
       setValue(
         'destinatario',
@@ -65,13 +85,13 @@ function ComunicadoForm({
     }
   };
 
-  const handleGrupoSelect = (grupo: GrupoReceptor) => {
-    setValue('idGrupoReceptor', grupo.idGrupoReceptor);
+  const handleGrupoSelect = (grupo: { id: number }) => {
+    setValue('idGrupoReceptor', grupo.id);
   };
 
   return (
     <form onSubmit={handleSubmit((data) => onSubmit(data, adjunto))} className="space-y-6">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Tipo de Receptor</label>
           <select
@@ -79,28 +99,50 @@ function ComunicadoForm({
             disabled={readOnly}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           >
+            <option value={0}>Seleccione un tipo</option>
             <option value={1}>Individual</option>
             <option value={2}>Grupo</option>
           </select>
         </div>
 
-        <div>
-          {tipoReceptor === 1 ? (
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Seleccionar Receptores
-              </label>
-              <ReceptorSelector onSelect={handleReceptorSelect} />
-            </div>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Seleccionar Grupo
-              </label>
-              <GrupoSelector onSelect={handleGrupoSelect} />
-            </div>
-          )}
-        </div>
+        {tipoReceptor === 1 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Seleccionar Receptores
+            </label>
+            <AutocompleteInput
+              options={
+                receptores?.map((receptor) => ({
+                  id: receptor.idReceptor,
+                  label: receptor.nombreCompleto,
+                  description: `${receptor.codigo} - ${receptor.correoElectronico}`,
+                })) || []
+              }
+              onSelect={handleReceptorSelect}
+              placeholder="Buscar receptor..."
+              disabled={readOnly}
+            />
+          </div>
+        )}
+
+        {tipoReceptor === 2 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Seleccionar Grupo
+            </label>
+            <AutocompleteInput
+              options={
+                grupos?.map((grupo) => ({
+                  id: grupo.idGrupoReceptor,
+                  label: grupo.nombre,
+                })) || []
+              }
+              onSelect={handleGrupoSelect}
+              placeholder="Buscar grupo..."
+              disabled={readOnly}
+            />
+          </div>
+        )}
       </div>
 
       <div>
@@ -125,7 +167,7 @@ function ComunicadoForm({
           name="contenido"
           control={control}
           render={({ field }) => (
-            <RichTextEditor
+            <TailwindEditor
               value={field.value}
               onChange={field.onChange}
               disabled={readOnly}
