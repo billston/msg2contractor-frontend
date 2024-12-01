@@ -15,33 +15,30 @@ function FileUpload({ accept = 'image/jpeg', onChange, label, error }: FileUploa
     const file = e.target.files?.[0];
     if (file) {
       onChange(file);
+      // Reset el input para permitir seleccionar el mismo archivo nuevamente
+      e.target.value = '';
     }
   };
 
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-      <div
-        className={`mt-1 flex justify-center rounded-md border-2 border-dashed px-6 py-4 cursor-pointer
-          ${error ? 'border-red-300' : 'border-gray-300'}`}
+      <button
+        type="button"
         onClick={() => inputRef.current?.click()}
+        className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md
+          ${error ? 'text-red-700 bg-red-50 hover:bg-red-100' : 'text-indigo-700 bg-indigo-50 hover:bg-indigo-100'}`}
       >
-        <div className="text-center">
-          <Upload className="mx-auto h-12 w-12 text-gray-400" />
-          <div className="mt-2 flex text-sm text-gray-600">
-            <label className="relative cursor-pointer rounded-md bg-white font-medium text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 hover:text-indigo-500">
-              <span>Subir archivo</span>
-              <input
-                ref={inputRef}
-                type="file"
-                className="sr-only"
-                accept={accept}
-                onChange={handleChange}
-              />
-            </label>
-          </div>
-        </div>
-      </div>
+        <Upload className="mr-2 h-4 w-4" />
+        Seleccionar archivo
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        className="hidden"
+        accept={accept}
+        onChange={handleChange}
+      />
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>
   );

@@ -1,14 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import FileUpload from './FileUpload';
 import AutocompleteInput from './AutocompleteInput';
-import TailwindEditor from './TailwindEditor';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../config/api';
 import { Receptor, GrupoReceptor } from '../types';
+import Quill from 'quill';
+import SelectedItem from './SelectedItem';
+import FilePreview from './FilePreview';
 
 const comunicadoSchema = z.object({
   tipoReceptor: z.number(),
@@ -30,12 +34,37 @@ interface ComunicadoFormProps {
   readOnly?: boolean;
 }
 
+// Registrar fuentes adicionales en Quill
+const Font = Quill.import('formats/font');
+Font.whitelist = ['arial', 'times-new-roman', 'courier-new', 'roboto', 'verdana'];
+Quill.register(Font, true);
+
+const modules = {
+  toolbar: [
+    [{ font: Font.whitelist }],
+    [{ size: ['small', false, 'large', 'huge'] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ color: [] }, { background: [] }],
+    [{ script: 'sub' }, { script: 'super' }],
+    [{ header: [1, 2, 3, 4, false] }],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    [{ indent: '-1' }, { indent: '+1' }],
+    [{ align: [] }],
+    ['link', 'image'],
+    ['clean'],
+  ],
+};
+
 function ComunicadoForm({
   onSubmit,
   initialData,
   isSubmitting,
   readOnly,
 }: ComunicadoFormProps) {
+  const [adjunto, setAdjunto] = useState<File>();
+  const [selectedReceptores, setSelectedReceptores] = useState<Receptor[]>([]);
+  const [selectedGrupo, setSelectedGrupo] = useState<GrupoReceptor | null>(null);
+
   const {
     register,
     handleSubmit,
@@ -53,7 +82,6 @@ function ComunicadoForm({
     },
   });
 
-  const [adjunto, setAdjunto] = useState<File>();
   const tipoReceptor = watch('tipoReceptor');
 
   const { data: receptores } = useQuery({
@@ -69,33 +97,65 @@ function ComunicadoForm({
     queryKey: ['grupos'],
     queryFn: async () => {
       const response = await api.get<GrupoReceptor[]>('/grupos', {
-        params: { search: ''},
+        params: { search: '' },
       });
       return response.data;
     },
     enabled: tipoReceptor === 2,
   });
 
-  const handleReceptorSelect = (receptor: { id: number }) => {
-    const currentDestinatarios = watch('destinatario')?.split(';').filter(Boolean) || [];
-    const newDestinatario = receptor.id.toString();
-    if (!currentDestinatarios.includes(newDestinatario)) {
+  // Cargar receptores seleccionados inicialmente
+  useEffect(() => {
+    if (initialData?.destinatario && receptores) {
+      const ids = initialData.destinatario.split(';').map(Number);
+      const selected = receptores.filter(r => ids.includes(r.idReceptor));
+      setSelectedReceptores(selected);
+    }
+  }, [initialData?.destinatario, receptores]);
+
+  // Cargar grupo seleccionado inicialmente
+  useEffect(() => {
+    if (initialData?.idGrupoReceptor && grupos) {
+      const grupo = grupos.find(g => g.idGrupoReceptor === initialData.idGrupoReceptor);
+      if (grupo) setSelectedGrupo(grupo);
+    }
+  }, [initialData?.idGrupoReceptor, grupos]);
+
+  const handleReceptorSelect = (receptor: Receptor) => {
+    const currentIds = selectedReceptores.map(r => r.idReceptor);
+    if (!currentIds.includes(receptor.idReceptor)) {
+      const newReceptores = [...selectedReceptores, receptor];
+      setSelectedReceptores(newReceptores);
       setValue(
         'destinatario',
-        [...currentDestinatarios, newDestinatario].join(';')
+        newReceptores.map(r => r.idReceptor).join(';')
       );
     }
   };
 
-  const handleGrupoSelect = (grupo: { id: number }) => {
-    setValue('idGrupoReceptor', grupo.id);
+  const handleRemoveReceptor = (receptor: Receptor) => {
+    const newReceptores = selectedReceptores.filter(
+      r => r.idReceptor !== receptor.idReceptor
+    );
+    setSelectedReceptores(newReceptores);
+    setValue(
+      'destinatario',
+      newReceptores.map(r => r.idReceptor).join(';')
+    );
+  };
+
+  const handleGrupoSelect = (grupo: GrupoReceptor) => {
+    setSelectedGrupo(grupo);
+    setValue('idGrupoReceptor', grupo.idGrupoReceptor);
   };
 
   return (
     <form onSubmit={handleSubmit((data) => onSubmit(data, adjunto))} className="space-y-6">
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Tipo de Receptor</label>
+          <label className="block text-sm font-medium text-gray-700">
+            Tipo de Receptor
+          </label>
           <select
             {...register('tipoReceptor', { valueAsNumber: true })}
             disabled={readOnly}
@@ -120,10 +180,28 @@ function ComunicadoForm({
                   description: `${receptor.codigo} - ${receptor.correoElectronico}`,
                 })) || []
               }
-              onSelect={handleReceptorSelect}
+              onSelect={(option) => {
+                const receptor = receptores?.find(
+                  (r) => r.idReceptor === option.id
+                );
+                if (receptor) handleReceptorSelect(receptor);
+              }}
               placeholder="Buscar receptor..."
               disabled={readOnly}
             />
+            {selectedReceptores.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {selectedReceptores.map((receptor) => (
+                  <SelectedItem
+                    key={receptor.idReceptor}
+                    label={receptor.nombreCompleto}
+                    description={receptor.codigo}
+                    onRemove={() => handleRemoveReceptor(receptor)}
+                    readOnly={readOnly}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -139,10 +217,27 @@ function ComunicadoForm({
                   label: grupo.nombre,
                 })) || []
               }
-              onSelect={handleGrupoSelect}
+              onSelect={(option) => {
+                const grupo = grupos?.find(
+                  (g) => g.idGrupoReceptor === option.id
+                );
+                if (grupo) handleGrupoSelect(grupo);
+              }}
               placeholder="Buscar grupo..."
               disabled={readOnly}
             />
+            {selectedGrupo && (
+              <div className="mt-2">
+                <SelectedItem
+                  label={selectedGrupo.nombre}
+                  onRemove={() => {
+                    setSelectedGrupo(null);
+                    setValue('idGrupoReceptor', undefined);
+                  }}
+                  readOnly={readOnly}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -169,10 +264,13 @@ function ComunicadoForm({
           name="contenido"
           control={control}
           render={({ field }) => (
-            <TailwindEditor
+            <ReactQuill
+              theme="snow"
               value={field.value}
               onChange={field.onChange}
-              disabled={readOnly}
+              modules={modules}
+              readOnly={readOnly}
+              className="bg-white"
             />
           )}
         />
@@ -234,6 +332,14 @@ function ComunicadoForm({
           label="Adjunto (PDF o Excel)"
           accept=".pdf,.xlsx,.xls"
           onChange={setAdjunto}
+        />
+      )}
+
+      {(adjunto || initialData?.adjunto) && (
+        <FilePreview
+          file={adjunto || new File([], initialData?.adjunto || '')}
+          onRemove={!readOnly ? () => setAdjunto(undefined) : undefined}
+          readOnly={readOnly}
         />
       )}
 

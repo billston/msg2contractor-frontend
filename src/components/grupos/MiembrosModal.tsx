@@ -84,7 +84,7 @@ function MiembrosModal({ grupo, onClose }: MiembrosModalProps) {
                       Correo
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Acciones
+                      
                     </th>
                   </tr>
                 </thead>

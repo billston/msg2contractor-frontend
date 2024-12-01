@@ -15,6 +15,7 @@ function ViewComunicadoModal({ comunicado, onClose }: ViewComunicadoModalProps) 
       isOpen={!!comunicado}
       onClose={onClose}
       title="Ver Comunicado"
+      size="large"
     >
       <ComunicadoForm initialData={comunicado} readOnly />
     </Modal>

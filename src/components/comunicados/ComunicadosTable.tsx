@@ -1,4 +1,4 @@
-import { Eye, CheckCircle } from 'lucide-react';
+import { Eye, CheckCircle, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { Comunicado } from '../../types';
 
@@ -6,6 +6,7 @@ interface ComunicadosTableProps {
   comunicados: Comunicado[];
   isLoading: boolean;
   onView: (comunicado: Comunicado) => void;
+  onEdit: (comunicado: Comunicado) => void;
   onConfirm: (id: number) => void;
 }
 
@@ -13,6 +14,7 @@ function ComunicadosTable({
   comunicados,
   isLoading,
   onView,
+  onEdit,
   onConfirm,
 }: ComunicadosTableProps) {
   return (
@@ -74,16 +76,27 @@ function ComunicadosTable({
                         <button
                           onClick={() => onView(comunicado)}
                           className="text-indigo-600 hover:text-indigo-900"
+                          title="Ver comunicado"
                         >
                           <Eye className="h-4 w-4" />
                         </button>
                         {comunicado.idEstadoComunicado === 1 && (
-                          <button
-                            onClick={() => onConfirm(comunicado.idComunicado)}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => onEdit(comunicado)}
+                              className="text-indigo-600 hover:text-indigo-900"
+                              title="Editar comunicado"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => onConfirm(comunicado.idComunicado)}
+                              className="text-green-600 hover:text-green-900"
+                              title="Confirmar comunicado"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </button>
+                          </>
                         )}
                       </td>
                     </tr>

@@ -15,6 +15,7 @@ function CreateComunicadoModal({ isOpen, onClose }: CreateComunicadoModalProps) 
       isOpen={isOpen}
       onClose={onClose}
       title="Nuevo Comunicado"
+      size="large"
     >
       <ComunicadoForm
         onSubmit={async (data, adjunto) => {

@@ -6,6 +6,7 @@ import { ITEMS_PER_PAGE } from '../config/pagination';
 import { Comunicado } from '../types';
 import { useComunicados } from '../hooks/useComunicados';
 import CreateComunicadoModal from '../components/comunicados/CreateComunicadoModal';
+import EditComunicadoModal from '../components/comunicados/EditComunicadoModal';
 import ViewComunicadoModal from '../components/comunicados/ViewComunicadoModal';
 import ComunicadosTable from '../components/comunicados/ComunicadosTable';
 import SearchInput from '../components/SearchInput';
@@ -16,6 +17,7 @@ function ComunicadosPage() {
   const [activeSearch, setActiveSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingComunicado, setEditingComunicado] = useState<Comunicado | null>(null);
   const [viewingComunicado, setViewingComunicado] = useState<Comunicado | null>(null);
 
   const { data: comunicados, isLoading } = useQuery({
@@ -74,6 +76,7 @@ function ComunicadosPage() {
         comunicados={paginatedComunicados}
         isLoading={isLoading}
         onView={setViewingComunicado}
+        onEdit={setEditingComunicado}
         onConfirm={handleConfirmar}
       />
 
@@ -88,6 +91,11 @@ function ComunicadosPage() {
       <CreateComunicadoModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
+      />
+
+      <EditComunicadoModal
+        comunicado={editingComunicado}
+        onClose={() => setEditingComunicado(null)}
       />
 
       <ViewComunicadoModal

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import RichTextEditor from './RichTextEditor';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import FileUpload from './FileUpload';
 
 const respuestaSchema = z.object({
@@ -15,6 +16,31 @@ interface RespuestaFormProps {
   onSubmit: (data: RespuestaFormData, adjunto?: File) => void;
   isSubmitting?: boolean;
 }
+
+const modules = {
+  toolbar: [
+    [{ font: [] }], // Fuente
+    [{ size: ['small', false, 'large', 'huge'] }], // Tamaño de fuente
+    ['bold', 'italic', 'underline', 'strike'], // Estilos de texto
+    [{ color: [] }, { background: [] }], // Colores
+    [{ script: 'sub' }, { script: 'super' }], // Subíndice y superíndice
+    [{ header: 1 }, { header: 2 }, { header: 3 }, { header: 4 }], // Encabezados
+    [{ list: 'ordered' }, { list: 'bullet' }], // Listas
+    [{ indent: '-1' }, { indent: '+1' }], // Sangría
+    [{ align: [] }], // Alineación de texto
+    ['link', 'image', 'video'], // Enlaces, imágenes y videos
+    ['blockquote', 'code-block'], // Bloque de cita y bloque de código
+    ['clean'], // Botón para limpiar formatos
+  ]
+};
+
+const formats = [
+  'header',
+  'bold', 'italic', 'underline', 'strike',
+  'color', 'background',
+  'align',
+  'list', 'bullet'
+];
 
 function RespuestaForm({ onSubmit, isSubmitting }: RespuestaFormProps) {
   const {
@@ -38,7 +64,14 @@ function RespuestaForm({ onSubmit, isSubmitting }: RespuestaFormProps) {
           name="respuesta"
           control={control}
           render={({ field }) => (
-            <RichTextEditor value={field.value} onChange={field.onChange} />
+            <ReactQuill
+              theme="snow"
+              value={field.value}
+              onChange={field.onChange}
+              modules={modules}
+              formats={formats}
+              className="bg-white"
+            />
           )}
         />
         {errors.respuesta && (
