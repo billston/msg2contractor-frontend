@@ -5,6 +5,7 @@ import { Auth0Provider } from '@auth0/auth0-react';
 import { AuthProvider } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
+import MainPage from './pages/MainPage';
 import ReceptoresPage from './pages/ReceptoresPage';
 import GruposPage from './pages/GruposPage';
 import ComunicadosPage from './pages/ComunicadosPage';
@@ -13,7 +14,7 @@ import NotificacionesPage from './pages/NotificacionesPage';
 const queryClient = new QueryClient();
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('auth_token');
   return token ? children : <Navigate to="/login" replace />;
 }
 
@@ -25,10 +26,12 @@ function App() {
       authorizationParams={{
         redirect_uri: window.location.origin,
       }}
+      useRefreshTokens={true}
+      cacheLocation="localstorage"
     >
-      <AuthProvider>
-        <QueryClientProvider client={queryClient}>
-          <Router>
+      <QueryClientProvider client={queryClient}>
+        <Router>
+          <AuthProvider>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route
@@ -37,21 +40,21 @@ function App() {
                   <PrivateRoute>
                     <Layout>
                       <Routes>
+                        <Route index element={<MainPage />} />
                         <Route path="/receptores" element={<ReceptoresPage />} />
                         <Route path="/grupos" element={<GruposPage />} />
                         <Route path="/comunicados" element={<ComunicadosPage />} />
                         <Route path="/notificaciones" element={<NotificacionesPage />} />
-                        <Route path="/" element={<Navigate to="/comunicados" replace />} />
                       </Routes>
                     </Layout>
                   </PrivateRoute>
                 }
               />
             </Routes>
-          </Router>
-          <Toaster position="top-right" />
-        </QueryClientProvider>
-      </AuthProvider>
+            <Toaster position="top-right" />
+          </AuthProvider>
+        </Router>
+      </QueryClientProvider>
     </Auth0Provider>
   );
 }

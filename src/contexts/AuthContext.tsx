@@ -1,6 +1,8 @@
-import { createContext, useContext, ReactNode, useCallback } from 'react';
+import { createContext, useContext, ReactNode, useEffect, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
-import { api } from '../config/api';
+import { useAuthMethods } from '../hooks/useAuthMethods';
+import { useAuthRedirect } from '../hooks/useAuthRedirect';
+import { getAuthUser } from '../utils/auth';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -15,51 +17,28 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const {
-    isAuthenticated,
-    isLoading,
-    user,
-    loginWithRedirect,
-    logout: auth0Logout,
-  } = useAuth0();
-
-  const login = useCallback(async (email: string, password: string) => {
-    try {
-      const response = await api.post('/auth/login', { email, password });
-      const { token } = response.data;
-      localStorage.setItem('token', token);
-    } catch (error) {
-      throw new Error('Error al iniciar sesión');
+  const { isAuthenticated: auth0IsAuthenticated, isLoading: auth0IsLoading, user: auth0User } = useAuth0();
+  const [user, setUser] = useState(getAuthUser());
+  const { login, loginWithGoogle, loginWithMicrosoft, logout } = useAuthMethods();
+  
+  useEffect(() => {
+    if (auth0User) {
+      setUser(auth0User);
     }
-  }, []);
+  }, [auth0User]);
 
-  const loginWithGoogle = useCallback(async () => {
-    await loginWithRedirect({
-      authorizationParams: {
-        connection: 'google-oauth2',
-      },
-    });
-  }, [loginWithRedirect]);
+  // Handle authentication redirects
+  useAuthRedirect();
 
-  const loginWithMicrosoft = useCallback(async () => {
-    await loginWithRedirect({
-      authorizationParams: {
-        connection: 'windowslive',
-      },
-    });
-  }, [loginWithRedirect]);
-
-  const logout = useCallback(async () => {
-    localStorage.removeItem('token');
-    await auth0Logout();
-  }, [auth0Logout]);
+  const isAuthenticated = auth0IsAuthenticated || !!user;
+  const isLoading = auth0IsLoading;
 
   return (
     <AuthContext.Provider
       value={{
         isAuthenticated,
         isLoading,
-        user,
+        user: user || auth0User,
         login,
         loginWithGoogle,
         loginWithMicrosoft,
