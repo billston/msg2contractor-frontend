@@ -68,7 +68,9 @@ function ComunicadoForm({
   const { data: grupos } = useQuery({
     queryKey: ['grupos'],
     queryFn: async () => {
-      const response = await api.get<GrupoReceptor[]>('/grupos');
+      const response = await api.get<GrupoReceptor[]>('/grupos', {
+        params: { search: ''},
+      });
       return response.data;
     },
     enabled: tipoReceptor === 2,
@@ -184,11 +186,11 @@ function ComunicadoForm({
           Fecha de Vencimiento
         </label>
         <input
-          type="datetime-local"
+          type="date"
           id="fechaVencimiento"
           {...register('fechaVencimiento')}
           disabled={readOnly}
-          min={format(new Date(), "yyyy-MM-dd'T'HH:mm")}
+          min={format(new Date(), "yyyy-MM-dd")}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
         />
       </div>
