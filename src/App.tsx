@@ -6,6 +6,7 @@ import ReceptoresPage from './pages/ReceptoresPage';
 import GruposPage from './pages/GruposPage';
 import ComunicadosPage from './pages/ComunicadosPage';
 import NotificacionesPage from './pages/NotificacionesPage';
+import MainPage from './pages/MainPage';
 
 const queryClient = new QueryClient();
 
@@ -19,7 +20,7 @@ function App() {
             <Route path="/grupos" element={<GruposPage />} />
             <Route path="/comunicados" element={<ComunicadosPage />} />
             <Route path="/notificaciones" element={<NotificacionesPage />} />
-            <Route path="/" element={<ComunicadosPage />} />
+            <Route path="/" element={<MainPage />} />
           </Routes>
         </Layout>
       </Router>
